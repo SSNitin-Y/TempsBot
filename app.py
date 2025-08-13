@@ -207,7 +207,7 @@ def _inputs_key(city, skin_type_number):
 # =========================
 # APP UI
 # =========================
-st.title("Welcome I'm Climbot")
+st.title("Welcome I'm TempsBot")
 st.caption("v2.5.0 • Powered by OpenWeatherMap & GPT")
 
 intro = (
