@@ -25,11 +25,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "actions@github.com"
 
-      - name: TempsBot_Private
+      - name: Configure Hugging Face remote and push
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
-        run: |
-          # Use token-based remote URL
-          git remote add hf https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}.git
-          git push hf HEAD:main --force
+          run: |
+            git remote remove hf || true
+            git remote add hf https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}.git
+            git push hf HEAD:main --force
+
+      
