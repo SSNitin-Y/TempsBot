@@ -70,6 +70,7 @@ jobs:
                 "summarizer.py",
                 "wardrobe_advisor.py",
                 "weather_api.py",
+                "p_environment.txt",
               ],
           )
           print("Uploaded to Space:", SPACE_ID)
