@@ -32,7 +32,7 @@ jobs:
           HF_TOKEN = os.environ["HF_TOKEN"]
 
           # CHANGE THIS to your HF username/org and Space name:
-          SPACE_ID = "SSNitinY/TempsBot"  # e.g., "ssnitiny/TempsBot"
+          SPACE_ID = "SSNitinY/TempsBot_core"  # e.g., "ssnitiny/TempsBot"
           REPO_TYPE = "space"
 
           api = HfApi(token=HF_TOKEN)
