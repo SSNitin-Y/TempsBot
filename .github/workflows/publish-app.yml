@@ -1,0 +1,39 @@
+name: Publish app.py to public repo
+
+on:
+  push:
+    branches: [ main ]   # ← change to your default branch name if needed
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+
+      - name: Prepare working copy of public repo
+        run: |
+          rm -rf public
+          git clone https://github.com/SSNitin-Y/TempsBot_Public.git public
+
+      - name: Copy sanitized app.py
+        run: |
+          # Copy your real app.py into the public repo folder
+          cp app.py public/app.py
+
+      - name: Commit & push if changed
+        working-directory: public
+        env:
+          GIT_AUTHOR_NAME: GitHub Actions
+          GIT_AUTHOR_EMAIL: actions@github.com
+          GIT_COMMITTER_NAME: GitHub Actions
+          GIT_COMMITTER_EMAIL: actions@github.com
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}   # from Step 2
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Sync app.py from private repo"
+          git push https://x-access-token:${GH_TOKEN}@github.com/SSNitin-Y/TempsBot_Public.git HEAD:main
