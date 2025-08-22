@@ -7,3 +7,4 @@ webcolors==1.11.1
 reportlab==4.4.3          # for PDF export; keep if you use PDF download
 openai==1.99.1            # keep only if GPT summaries are enabled
 pillow==11.3.0            # if you use export_utils.py to render swatch PNGs
+streamlit-js-eval>=0.1.6
