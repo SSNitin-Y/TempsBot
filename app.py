@@ -169,6 +169,25 @@ def get_tz_offset_seconds(lat: float, lon: float, api_key: str) -> int:
     except Exception:
         return 0
 
+# ✅ NEW: preferred helper that returns tz offset AND timezone name (for DST-safe conversion)
+@st.cache_data(ttl=3600)
+def get_tz_info(lat: float, lon: float, api_key: str) -> tuple[int, str]:
+    """
+    Returns (timezone_offset_seconds, timezone_name) from One Call.
+    """
+    import requests
+    try:
+        r = requests.get(
+            "https://api.openweathermap.org/data/3.0/onecall",
+            params={"lat": lat, "lon": lon, "appid": api_key, "exclude": "minutely,hourly,daily,alerts"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        j = r.json()
+        return int(j.get("timezone_offset", 0) or 0), (j.get("timezone") or "UTC")
+    except Exception:
+        return 0, "UTC"
+
 
 @st.cache_data
 def build_outfit_plan_pdf_cached(sections, city_name=""):
@@ -484,21 +503,11 @@ if st.session_state.get("plan_ready"):
                 if df_hourly.empty:
                     st.info("No hourly data available.")
                 else:
-                    # robust UTC parse → shift → drop tz; separate label column floored to hour
+                    # ✅ FIX: hourly timestamps are already local (naive). Do NOT add tz offsets again.
                     import pandas as pd
-                    import matplotlib.dates as mdates
-                    try:
-                        tz_offset = get_tz_offset_seconds(lat, lon, st.secrets["OPENWEATHER_API_KEY"])
-                    except Exception:
-                        tz_offset = 0
 
                     df_hourly = df_hourly.copy()
-                    # Parse as UTC, add city offset to get local, drop tz for plotting
-                    dt_h = pd.to_datetime(df_hourly["datetime"], utc=True, errors="coerce")
-                    local_dt = (dt_h + pd.to_timedelta(tz_offset, unit="s")).dt.tz_localize(None)
-
-                    # Keep true local timestamps but make a floored label column for neat :00 display
-                    df_hourly["datetime"] = local_dt
+                    df_hourly["datetime"] = pd.to_datetime(df_hourly["datetime"], errors="coerce")
                     df_hourly["datetime_label"] = df_hourly["datetime"].dt.floor("H")
 
                     # Table uses the neat labels
@@ -699,16 +708,18 @@ if st.session_state.get("plan_ready"):
                 import matplotlib.dates as mdates
                 df_forecast = pd.read_json(df_forecast_json)
 
-                # keep as you had it previously for 5-day
+                # ✅ FIX: convert from UTC using the city's timezone NAME (DST-safe), not by adding seconds
                 try:
                     coord = data.get("coord") or {}
                     lat, lon = coord.get("lat"), coord.get("lon")
-                    tz_offset = get_tz_offset_seconds(lat, lon, st.secrets["OPENWEATHER_API_KEY"]) if (lat is not None and lon is not None) else 0
+                    tz_off, tz_name = get_tz_info(lat, lon, st.secrets["OPENWEATHER_API_KEY"]) if (lat is not None and lon is not None) else (0, "UTC")
                 except Exception:
-                    tz_offset = 0
+                    tz_off, tz_name = (0, "UTC")
+
                 df_forecast = df_forecast.copy()
-                dt_f = pd.to_datetime(df_forecast["datetime"], utc=False, errors="coerce")
-                df_forecast["datetime"] = (dt_f + pd.to_timedelta(tz_offset, unit="s")).dt.floor("H")
+                dt_f = pd.to_datetime(df_forecast["datetime"], errors="coerce", utc=True)   # mark as UTC
+                local_dt_f = dt_f.dt.tz_convert(tz_name).dt.tz_localize(None)               # convert → local, drop tz
+                df_forecast["datetime"] = local_dt_f.dt.floor("H")
 
                 # If UVI missing, attempt mapping from uv_next5 (optional/backstop)
                 if "uvi" not in df_forecast.columns:
@@ -784,8 +795,9 @@ if st.session_state.get("plan_ready"):
                 else:
                     dfp5["pop_pct"] = np.nan
                 if "uvi" in dfp5.columns:
-                    uvi_max5 = float(np.nanmax(pd.to_numeric(dfp5["uvi"], errors="coerce")))
-                    baseline5 = max(11.0, uvi_max5 if np.isfinite(uvi_max5) else 0.0)
+                    import numpy as _np
+                    uvi_max5 = float(_np.nanmax(pd.to_numeric(dfp5["uvi"], errors="coerce")))
+                    baseline5 = max(11.0, uvi_max5 if _np.isfinite(uvi_max5) else 0.0)
                     scale5 = (100.0 / baseline5) if baseline5 > 0 else 0.0
                     dfp5["uvi_pct"] = (pd.to_numeric(dfp5["uvi"], errors="coerce") * scale5)
                 else:
@@ -982,7 +994,7 @@ st.markdown("""
 <style>
 .footer-container { text-align:center; font-size:0.9em; line-height:1.6; }
 .social-link { text-decoration:none; color:inherit; }
-.social-link:hover { color:#00A37A !important; }
+social-link:hover { color:#00A37A !important; }
 social-icon { vertical-align:middle; margin-right:6px; }
 .social-row { display:flex; justify-content:center; gap:24px; flex-wrap:wrap; margin:6px 0 12px 0; }
 </style>
