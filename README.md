@@ -268,5 +268,3 @@ App.py
 3. Export **PNG color grid** for reference.  
 
 
-
-> Note: This code is **not runnable** on its own. It references modules kept private.
